@@ -1,16 +1,17 @@
 # WL Checker
 
-A small Chrome extension that checks **all your wallets at once** against an NFT whitelist / allowlist checker. Save your wallet addresses once, then right-click on a checker page and get a results table in seconds.
+A small Chrome extension that checks **all your wallets at once** against an NFT whitelist / allowlist checker.
 
-It currently has three modes, picked automatically from the page you're on:
+Many mints have a "whitelist checker": a page where you paste your wallet address to see whether you're on the list. If you hold lots of wallets, that means pasting them one by one. With WL Checker you save your addresses once, then **right-click on the checker page** and get a results table for all of them in seconds.
+
+It works in two ways, picked automatically from the page you're on:
 
 | Page | What you get |
 |---|---|
-| **OpenSea drop pages** (`opensea.io/collection/...`) | A wallets × phases grid showing which of your OpenSea-linked wallets are eligible for **every phase** of the mint schedule, with max mint amounts. |
-| **UnVault Bugz** (`unvault.com/bugz`) | Per-wallet eligibility with phase (1 / 2 / both), how each wallet qualified, and summary analytics. |
-| **Any other whitelist checker** | Best-effort: it fills each address into the page's checker box and reads the answer. |
+| **Any site with a whitelist checker** | The extension finds the wallet input and the check button on the page, runs each of your saved wallets through it one by one, and shows a table: **eligible**, **not eligible**, or **inconclusive** for each wallet, plus the phase or allocation when the site shows it. |
+| **OpenSea drop pages** (`opensea.io/collection/...`) | A richer view: a wallets × phases grid showing which of your OpenSea-linked wallets are eligible for **every phase** of the mint schedule, with max mint amounts. |
 
-> Not affiliated with OpenSea, UnVault, or any project. Results are only as good as what those sites report. Not financial advice.
+> Not affiliated with OpenSea or any project. Results are only as good as what the sites report. Not financial advice.
 
 ---
 
@@ -64,7 +65,7 @@ The short version: **it only reads public wallet addresses, it never touches pri
 
 **What it sends over the network**
 - **OpenSea mode:** one read-only request to OpenSea's own website (the same data the page already loads for you), using your existing signed-in session. Nothing else.
-- **Other sites (Bugz / generic):** it types your addresses into **that site's own checker form**, exactly as if you pasted them yourself. That means **the site receives those addresses** and can see that they were checked together. Only use it on sites you trust.
+- **Any other whitelist checker site:** it types your addresses into **that site's own checker form**, exactly as if you pasted them yourself. That means **the site receives those addresses** and can see that they were checked together. Only use it on sites you trust.
 
 **Permissions, explained**
 
