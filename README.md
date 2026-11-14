@@ -6,10 +6,10 @@ Many mints have a "whitelist checker": a page where you paste your wallet addres
 
 It works in two ways, picked automatically from the page you're on:
 
-| Page | What you get |
-|---|---|
-| **Any site with a whitelist checker** | The extension finds the wallet input and the check button on the page, runs each of your saved wallets through it one by one, and shows a table: **eligible**, **not eligible**, or **inconclusive** for each wallet, plus the phase or allocation when the site shows it. |
-| **OpenSea drop pages** (`opensea.io/collection/...`) | A richer view: a wallets × phases grid showing which of your OpenSea-linked wallets are eligible for **every phase** of the mint schedule, with max mint amounts. |
+| Page | What you get | Reliability |
+|---|---|---|
+| **OpenSea drop pages** (`opensea.io/collection/...`) | A wallets × phases grid showing which of your OpenSea-linked wallets are eligible for **every phase** of the mint schedule, with max mint amounts. | Built specifically for OpenSea. |
+| **Other whitelist-checker sites** | **Best effort.** The extension tries to find the wallet input and the check button, runs each saved wallet through it one by one, and guesses the answer from the text the page shows: **eligible**, **not eligible**, or **inconclusive**. | Varies by site. Many pages are laid out differently, so it can fail to find the box or misread a result. Always double-check anything important on the site itself. |
 
 > Not affiliated with OpenSea or any project. Results are only as good as what the sites report. Not financial advice.
 
