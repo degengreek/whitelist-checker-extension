@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WL Checker</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div id="header-left">
+        <span id="logo">◈</span>
+        <span id="appname">WL Checker</span>
+      </div>
+      <span id="wallet-count">0 wallets</span>
+    </header>
+
+    <div id="wallet-list-wrap">
+      <div id="wallet-list"></div>
+      <div id="empty-state">
+        <div id="empty-icon">◈</div>
+        <div>No wallets yet</div>
+        <div id="empty-sub">Add your wallet addresses below</div>
+      </div>
+    </div>
+
+    <div id="add-section">
+      <div id="add-form">
+        <input id="addr-input" type="text" placeholder="0x wallet address" spellcheck="false" autocomplete="off">
+        <input id="label-input" type="text" placeholder="Label (optional)" maxlength="20">
+        <button id="add-btn">Add</button>
+      </div>
+
+      <div id="import-wrap">
+        <button id="import-toggle">Import bulk ▾</button>
+        <div id="import-area" class="hidden">
+          <textarea id="import-text" placeholder="Paste addresses — one per line&#10;0x1234...&#10;0x5678..."></textarea>
+          <button id="import-btn">Import</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

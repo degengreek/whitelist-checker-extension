@@ -1,0 +1,6 @@
+.DS_Store
+Thumbs.db
+node_modules/
+*.log
+# local design notes, not part of the extension
+app-concept.pdf

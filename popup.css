@@ -1,0 +1,183 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  width: 340px;
+  background: #0f0f13;
+  color: #e2e2e8;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  min-height: 200px;
+}
+
+#app { display: flex; flex-direction: column; height: 100%; }
+
+/* ── Header ── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 11px;
+  border-bottom: 1px solid #1a1a28;
+  flex-shrink: 0;
+}
+
+#header-left { display: flex; align-items: center; gap: 7px; }
+
+#logo { color: #22c55e; font-size: 16px; }
+
+#appname { font-weight: 600; font-size: 13.5px; letter-spacing: .3px; }
+
+#wallet-count { font-size: 11px; color: #44445a; background: #1a1a28; padding: 3px 8px; border-radius: 10px; }
+
+/* ── Wallet list ── */
+#wallet-list-wrap { flex: 1; overflow-y: auto; min-height: 0; max-height: 280px; position: relative; }
+
+#wallet-list-wrap::-webkit-scrollbar { width: 3px; }
+#wallet-list-wrap::-webkit-scrollbar-track { background: transparent; }
+#wallet-list-wrap::-webkit-scrollbar-thumb { background: #252535; border-radius: 2px; }
+
+#empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 14px;
+  color: #36364a;
+  gap: 6px;
+  font-size: 13px;
+}
+
+#empty-icon { font-size: 28px; color: #252535; margin-bottom: 4px; }
+#empty-sub { font-size: 11px; }
+
+.wallet-row {
+  display: flex;
+  align-items: center;
+  padding: 8px 14px;
+  gap: 10px;
+  border-bottom: 1px solid #14141e;
+  transition: background .1s;
+}
+
+.wallet-row:hover { background: rgba(255,255,255,.02); }
+
+.wallet-info { flex: 1; min-width: 0; }
+
+.wallet-addr {
+  font-size: 11.5px;
+  font-family: 'Courier New', monospace;
+  color: #7070a0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wallet-label { font-size: 10.5px; color: #44445a; margin-top: 2px; }
+
+.delete-btn {
+  all: unset;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  color: #36364a;
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background .12s, color .12s;
+}
+
+.delete-btn:hover { background: rgba(239,68,68,.12); color: #ef4444; }
+
+/* ── Add section ── */
+#add-section {
+  border-top: 1px solid #1a1a28;
+  padding: 10px 14px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#add-form { display: flex; flex-direction: column; gap: 6px; }
+
+input[type="text"], textarea {
+  background: #1a1a28;
+  border: 1px solid #252535;
+  border-radius: 7px;
+  color: #e2e2e8;
+  font-size: 12px;
+  padding: 7px 10px;
+  outline: none;
+  width: 100%;
+  transition: border-color .15s;
+  font-family: inherit;
+}
+
+#addr-input { font-family: 'Courier New', monospace; font-size: 11.5px; }
+
+input[type="text"]:focus, textarea:focus { border-color: #22c55e44; }
+
+input::placeholder, textarea::placeholder { color: #36364a; }
+
+button {
+  background: #22c55e;
+  color: #0a0a0e;
+  border: none;
+  border-radius: 7px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, transform .1s;
+}
+
+button:hover { background: #4ade80; }
+button:active { transform: scale(.97); }
+
+#add-btn { width: 100%; }
+
+/* Import */
+#import-wrap { display: flex; flex-direction: column; gap: 6px; }
+
+#import-toggle {
+  background: transparent;
+  color: #44445a;
+  font-weight: 500;
+  font-size: 11.5px;
+  padding: 4px 0;
+  text-align: left;
+  border-radius: 0;
+}
+
+#import-toggle:hover { background: transparent; color: #7070a0; }
+
+#import-area { display: flex; flex-direction: column; gap: 6px; }
+#import-area.hidden { display: none; }
+
+textarea { resize: none; height: 80px; line-height: 1.5; }
+
+#import-btn { background: #1a1a28; color: #7070a0; border: 1px solid #252535; }
+#import-btn:hover { background: #252535; color: #e2e2e8; }
+
+/* Toast */
+#toast {
+  position: fixed;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #22c55e;
+  color: #0a0a0e;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 8px;
+  opacity: 0;
+  transition: opacity .2s;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+#toast.show { opacity: 1; }
