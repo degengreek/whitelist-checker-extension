@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "WL Checker",
-  "version": "1.0",
+  "version": "1.1",
   "description": "Check all your wallets against any NFT whitelist checker — one right-click.",
   "permissions": ["contextMenus", "storage", "activeTab", "scripting"],
   "background": {

@@ -61,7 +61,7 @@
 
   // ── DOM helpers ────────────────────────────────────────────────────────────
   function findInput() {
-    const known = document.getElementById('bugz-wallet-check');
+    const known = document.getElementById('bugz-wallet-check') || document.getElementById(HOOJA_INPUT);
     if (known) return known;
     for (const el of document.querySelectorAll('input')) {
       const attrs = [el.placeholder, el.name, el.id, el.getAttribute('aria-label'), el.className].join(' ').toLowerCase();
@@ -160,6 +160,135 @@
     }
   }
 
+  // ── Site adapter: hooja.fun/allocation ─────────────────────────────────────
+  // Each check runs a Cloudflare Turnstile first, so a result takes ~15-20 s.
+  // The previous wallet's card stays on screen while the next check runs, so we
+  // wait for the button to go "CHECKING..." and back before reading anything.
+  const HOOJA_INPUT = 'allocation-wallets';
+  const hoojaSubmit = input => input.form?.querySelector('button[type="submit"]') || findSubmit();
+  const hoojaBusy = btn => !!btn && (btn.disabled || /checking/i.test(btn.innerText || ''));
+  const hoojaCaptchaShown = () => /tick the box/i.test(document.body.innerText);
+
+  function readHooja(wallet) {
+    const label = [...document.querySelectorAll('div')].find(e => e.innerText?.trim().toUpperCase() === 'YOUR ALLOCATION' && !e.children.length);
+    if (!label) {
+      const live = [...document.querySelectorAll('[aria-live], [role="alert"]')].map(e => e.innerText.trim()).filter(Boolean).join(' ');
+      return { kind: 'none', text: live };
+    }
+    const pill = (label.nextElementSibling?.innerText || '').trim().toUpperCase();
+    const card = label.parentElement?.parentElement;
+    if (/NOT\s+ELIGIBLE/.test(pill)) return { kind: 'result', eligible: false };
+    if (!/ELIGIBLE/.test(pill)) return { kind: 'unknown', text: pill };
+
+    // The details section is tagged with the wallet that was checked.
+    const sections = [...(card?.querySelectorAll('section[aria-labelledby]') || [])];
+    const w = wallet.toLowerCase();
+    const mine = sections.filter(sec => sec.getAttribute('aria-labelledby').toLowerCase().endsWith(w));
+    if (sections.length && !mine.length) return { kind: 'stale' };
+
+    // Summary block right under the header, e.g. "WHITELIST" + "1 GTD SPOT".
+    const summary = [];
+    const lines = (label.parentElement.nextElementSibling?.innerText || '').split('\n').map(t => t.trim())
+      .filter(t => t && !/^(view|hide) details$/i.test(t));
+    for (let i = 0; i < lines.length; i++) {
+      if (i + 1 < lines.length && /^\d+\s/.test(lines[i + 1]) && !/^\d/.test(lines[i])) { summary.push(`${lines[i]}: ${lines[i + 1]}`); i++; }
+      else summary.push(lines[i]);
+    }
+    // Tier rows inside the details, e.g. GTD ✓ / FCFS No.
+    const tiers = [];
+    for (const sec of mine) {
+      for (const row of sec.querySelectorAll('h4 + div > div')) {
+        // textContent, not innerText: the rows sit inside a collapsed <details>.
+        const [tier, val, ...rest] = [...row.children].map(c => c.textContent.trim());
+        if (tier && val && !/^(no|—|-|✗|x)$/i.test(val)) tiers.push(tier.toUpperCase() + (rest.length && rest[0] ? ` (${rest.join(' ')})` : ''));
+      }
+    }
+    return { kind: 'result', eligible: true, summary, tiers };
+  }
+
+  // Get the user's attention when the captcha needs a click. Returns a stop function.
+  function captchaAlert(input) {
+    const box = input.form?.querySelector('[name="cf-turnstile-response"]')?.parentElement || input.form;
+    box?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    try {
+      const ctx = new AudioContext();
+      [0, 0.25].forEach(t => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.frequency.value = 880; g.gain.value = 0.08;
+        o.connect(g).connect(ctx.destination);
+        o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.15);
+      });
+      setTimeout(() => ctx.close(), 1000);
+    } catch { /* sound blocked — the title flash and panel hint still work */ }
+    const title = document.title;
+    let on = false;
+    const iv = setInterval(() => { on = !on; document.title = on ? '⚠ Tick the captcha box' : title; }, 1000);
+    return () => { clearInterval(iv); document.title = title; };
+  }
+
+  async function checkHooja(input, _submit, wallet) {
+    const t0 = performance.now();
+    const warnings = [];
+    let retries = 0;
+    for (;;) {
+      const btn = hoojaSubmit(input);
+      // If a previous check is still running, let it finish first.
+      for (let end = performance.now() + 60000; hoojaBusy(btn) && performance.now() < end;) await sleep(300);
+      fillInput(input, wallet);
+      await sleep(200);
+      btn.click();
+
+      // 1) the check must actually start …
+      let started = false;
+      for (let end = performance.now() + 5000; performance.now() < end; await sleep(100))
+        if (hoojaBusy(btn)) { started = true; break; }
+      // 2) … and finish (Turnstile + lookup). Allow plenty of time.
+      // Turnstile usually solves itself. If it sits on "tick the box", call the user over
+      // (sound + flashing tab title + scroll to the box) and wait for them — no time limit
+      // while the box is showing, up to 10 minutes.
+      let captchaSince = null, stopAlert = null;
+      if (started) {
+        const t1 = performance.now();
+        while (hoojaBusy(btn)) {
+          await sleep(300);
+          const elapsed = performance.now() - t1;
+          if (hoojaCaptchaShown()) {
+            captchaSince ??= performance.now();
+            if (!stopAlert && performance.now() - captchaSince > 8000) {
+              state.hint = 'tick the captcha box on the page'; render();
+              stopAlert = captchaAlert(input);
+            }
+            if (elapsed > 600000) break;
+          } else {
+            captchaSince = null;
+            if (elapsed > 90000) break;
+          }
+        }
+      }
+      stopAlert?.();
+      if (state.hint) { state.hint = null; render(); }
+      await sleep(300); // let the result card render
+
+      const stillBusy = hoojaBusy(btn);
+      const r = started && !stillBusy ? readHooja(wallet) : { kind: started ? 'timeout' : 'nostart' };
+      if ((r.kind === 'stale' || r.kind === 'none' || r.kind === 'nostart') && retries < 2) {
+        retries++; warnings.push(r.kind === 'stale' ? 'stale result, re-checked' : 'no result, re-checked');
+        await sleep(1500);
+        continue;
+      }
+      const ms = Math.round(performance.now() - t0);
+      if (r.kind === 'result') {
+        const note = r.eligible ? [...r.summary, ...(r.tiers.length ? ['tier: ' + r.tiers.join(', ')] : [])].join(' · ') : null;
+        return { status: r.eligible ? 'ELIGIBLE' : 'NOT_ELIGIBLE', phases: [], sources: [], note, warnings, retries, ms };
+      }
+      const reason = r.kind === 'timeout' && hoojaCaptchaShown()
+        ? 'captcha needs a manual click — tick the box on the page, then Retry inconclusive'
+        : { timeout: 'site did not answer in time', nostart: 'check did not start', stale: 'page kept showing another wallet\'s result',
+            none: r.text ? 'site said: ' + r.text.slice(0, 120) : 'no result card', unknown: 'unrecognised status: ' + (r.text || '') }[r.kind] || r.kind;
+      return { status: 'INCONCLUSIVE', phases: [], sources: [], warnings: [...warnings, reason], retries, ms };
+    }
+  }
+
   // ── Generic fallback adapter (other whitelist checkers) ────────────────────
   function pageSnapshot() {
     const texts = new Set();
@@ -189,9 +318,16 @@
     }
     return best;
   }
-  function waitForChange(prevSnap, wallet, timeout = 4000) {
+  // True while the page shows it is still working (disabled submit, "checking…", spinner text).
+  function pageBusy(submit) {
+    if (submit && (submit.disabled || submit.getAttribute('aria-busy') === 'true')) return true;
+    const t = (submit?.innerText || submit?.value || '').toLowerCase();
+    return /checking|loading|verifying|please wait|\.\.\.$|…$/.test(t);
+  }
+  function waitForChange(prevSnap, wallet, submit, timeout = 4000, maxBusy = 60000) {
     return new Promise(resolve => {
       let done = false, debounce;
+      const t0 = performance.now();
       const finish = () => { if (done) return; done = true; resolve(bestResult(prevSnap, wallet)); };
       const obs = new MutationObserver(() => {
         clearTimeout(debounce);
@@ -201,7 +337,13 @@
         }, 300);
       });
       obs.observe(document.body, { childList: true, subtree: true, characterData: true });
-      setTimeout(() => { obs.disconnect(); finish(); }, timeout);
+      // Slow checkers (captcha first, then lookup): keep waiting while the page says it's busy.
+      const tick = () => {
+        if (done) return;
+        if (pageBusy(submit) && performance.now() - t0 < maxBusy) { setTimeout(tick, 500); return; }
+        setTimeout(() => { obs.disconnect(); finish(); }, 600);
+      };
+      setTimeout(tick, timeout);
     });
   }
   async function checkGeneric(input, submit, wallet) {
@@ -214,7 +356,7 @@
       input.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', keyCode: 13, bubbles: true }));
       input.form?.requestSubmit?.();
     }
-    const text = await waitForChange(snap, wallet);
+    const text = await waitForChange(snap, wallet, submit);
     const s = genericScore(text);
     const phase = s === 'YES' ? extractPhase(text) : null;
     return {
@@ -229,7 +371,7 @@
   const state = {
     wallets: [], labels: {}, results: {}, running: null, done: 0, total: 0,
     startedAt: 0, finishedAt: 0, minimized: false, mode: 'generic', filter: 'all',
-    os: null, osFilter: 'allow'
+    os: null, osFilter: 'allow', hint: null
   };
 
   // ── Site adapter: opensea.io drops (account-wide wallet × phase eligibility) ─
@@ -485,7 +627,7 @@
 
   function statusCell(w) {
     const r = state.results[w];
-    if (!r) return state.running === w ? '<div class="st run">checking…</div>' : '<div class="st pend">—</div>';
+    if (!r) return state.running === w ? `<div class="st run">checking…${state.hint ? `<small style="color:#f59e0b">${esc(state.hint)}</small>` : ''}</div>` : '<div class="st pend">—</div>';
     const t = `<small>${fmtSec(r.ms)}${r.retries ? ` · ${r.retries} retr${r.retries > 1 ? 'ies' : 'y'}` : ''}</small>`;
     if (r.status === 'ELIGIBLE') return `<div class="st yes">✓ ELIGIBLE${t}</div>`;
     if (r.status === 'NOT_ELIGIBLE') return `<div class="st no">✗ NOT ELIGIBLE${t}</div>`;
@@ -541,7 +683,7 @@
             <div class="tile"><b class="c-neu">${eligPct}%</b><span>Hit rate</span></div>
           </div>
         </div>
-        ${a.eligible ? `
+        ${a.eligible && state.mode === 'bugz' ? `
         <div class="sec">
           <h4>Phase breakdown (of ${a.eligible} eligible)</h4>
           <div class="stack">${seg(a.both, '#22c55e')}${seg(a.p1only, '#6366f1')}${seg(a.p2only, '#a855f7')}${seg(a.other, '#64748b')}</div>
@@ -575,7 +717,7 @@
 
     panel.innerHTML = `
       <div id="hdr">
-        <div><div id="ttl">WL Checker <span style="font-weight:400;color:#5a5a78">· ${state.mode === 'bugz' ? 'Bugz adapter' : 'generic'}</span></div><div id="sub">${esc(sub)}</div></div>
+        <div><div id="ttl">WL Checker <span style="font-weight:400;color:#5a5a78">· ${({ bugz: 'Bugz adapter', hooja: 'Hooja adapter' })[state.mode] || 'generic'}</span></div><div id="sub">${esc(sub)}</div></div>
         <div id="btns"><button id="minBtn" title="Minimize">${state.minimized ? '+' : '−'}</button><button id="closeBtn" title="Close">×</button></div>
       </div>
       <div id="bar"><div id="fill" style="width:${pct(state.done, n)}%"></div></div>
@@ -624,7 +766,7 @@
     busy = true;
     const input = findInput();
     const submit = findSubmit();
-    const check = state.mode === 'bugz' ? checkBugz : checkGeneric;
+    const check = { bugz: checkBugz, hooja: checkHooja }[state.mode] || checkGeneric;
     state.done = state.wallets.length - list.length;
     state.total = state.wallets.length;
     state.finishedAt = 0;
@@ -642,7 +784,9 @@
       state.done++;
       state.running = null;
       render();
-      if (i < list.length - 1) await sleep(state.mode === 'bugz' ? 900 : 600); // be polite to the site
+      // Be polite to the site. Hooja gets a longer, slightly random gap: fast back-to-back
+      // checks make Cloudflare ask for a manual captcha click more often.
+      if (i < list.length - 1) await sleep(state.mode === 'hooja' ? 5000 + Math.random() * 4000 : state.mode === 'generic' ? 600 : 900);
     }
     state.finishedAt = Date.now();
     busy = false;
@@ -664,7 +808,9 @@
     if (state.wallets.length === 0) { showError('No wallets saved', 'Open the extension popup to add your wallet addresses.'); return; }
     if (!findInput()) { showError('No input found', 'Could not detect a wallet address input on this page. Navigate to the whitelist checker section.'); return; }
 
-    state.mode = document.getElementById('bugz-wallet-check') ? 'bugz' : 'generic';
+    state.mode = document.getElementById('bugz-wallet-check') ? 'bugz'
+               : /(^|\.)hooja\.fun$/.test(location.hostname) && document.getElementById(HOOJA_INPUT) ? 'hooja'
+               : 'generic';
     state.total = state.wallets.length;
     run(state.wallets.slice());
   }
