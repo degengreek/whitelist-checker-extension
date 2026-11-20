@@ -89,6 +89,7 @@ The code is small and open — please read it. No software can honestly promise 
 
 - The popup only accepts EVM (`0x…`) addresses. OpenSea mode also shows any Solana wallets linked to your account.
 - Generic mode is heuristic: sites with unusual layouts, results shown as images, or checkers that need a wallet connection may come back as Inconclusive.
+- hooja.fun/allocation has its own adapter. Every check passes a Cloudflare captcha first, so each wallet takes ~15–35 s. Wallets are spaced 5–9 s apart to keep captcha prompts rare. If the captcha does ask for a click, the extension beeps, flashes the tab title and scrolls to the box — tick it and the run continues.
 - OpenSea mode relies on the same internal data OpenSea's own page uses. If OpenSea changes it, the extension will show an error instead of a wrong answer, and may need an update.
 - Each site can rate-limit lookups. The extension waits between wallets and retries politely.
 
